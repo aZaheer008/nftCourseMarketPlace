@@ -17,7 +17,7 @@ const enhancedHook = swrRes => {
 
     return {
         ...swrRes,
-        isEmpty,
+        isEmpty, 
         hasInitialResponse
     }
 }

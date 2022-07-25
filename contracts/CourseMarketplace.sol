@@ -62,6 +62,29 @@ contract CourseMarketPlace {
         });
     }
 
+    function repurchaseCourse(bytes32 courseHash)
+        external
+        payable
+    {
+        if (!isCourseCreated(courseHash)) {
+            revert("Course Is not Created Yet!");
+        }
+
+        if (!hasCourseOwnership(courseHash)) {
+            revert("Sender is not course Owner");
+        }
+
+        Course storage course = ownedCourses[courseHash];
+
+        if (course.state != State.Deactivated) {
+            revert("Course has Invalid State");
+        }
+
+        course.state = State.Purchased;
+        course.price = msg.value;
+
+    }
+
     function activateCourse(
         bytes32 courseHash
     )
@@ -78,6 +101,29 @@ contract CourseMarketPlace {
             revert("Course has Invalid State");
         }
         course.state = State.Activated;
+    }
+
+        function deactivateCourse(
+        bytes32 courseHash
+    )
+        external
+        onlyOwner
+    {
+        if (!isCourseCreated(courseHash)) {
+            revert("Course is not Created!");
+        }
+
+        Course storage course = ownedCourses[courseHash];
+
+        if ( course.state != State.Purchased ){
+            revert("Course has Invalid State");
+        }
+
+        (bool success,) = course.owner.call{ value : course.price}("");
+        require(success, "Transfer failed!");
+
+        course.state = State.Activated;
+        course.price = 0;
     }
 
     function transferOwnership (address newOwner)
