@@ -122,7 +122,7 @@ contract CourseMarketPlace {
         (bool success,) = course.owner.call{ value : course.price}("");
         require(success, "Transfer failed!");
 
-        course.state = State.Activated;
+        course.state = State.Deactivated;
         course.price = 0;
     }
 

@@ -13,6 +13,7 @@ export default function OwnedCourses({courses}) {
     const { requireInstall } = useWeb3()
     const { account } = useAccount();
     const { ownedCourses } = useOwnedCourses(courses , account.data);
+
     return (
         <>
             <MarketHeader />
