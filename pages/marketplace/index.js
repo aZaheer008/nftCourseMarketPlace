@@ -8,6 +8,8 @@ import { OrderModal } from "@components/ui/order"
 import { useState } from "react"
 import { MarketHeader } from "@components/ui/marketplace"
 import { useWeb3 } from "@components/providers"
+import { toast } from "react-toastify";
+import { withToast } from "@utils/toast"
 
 export default function Marketplace({courses}) {
 
@@ -15,11 +17,12 @@ export default function Marketplace({courses}) {
   const { hasConnectedWallet ,isConnecting , account } = useWalletInfo();
   const { ownedCourses } = useOwnedCourses(courses , account.data);
   const [selectedCourse, setSelectedCourse] = useState(null); 
+  const [busyCourseId, setBusyCourseId] = useState(null);
   const [isNewPurchase, setIsNewPurchase] = useState(true);
 
-  const purchaseCourse = async order => {
+  const purchaseCourse = async (order, course) => {
 
-    const hexCourseId = web3.utils.utf8ToHex(selectedCourse.id);
+    const hexCourseId = web3.utils.utf8ToHex(course.id);
     const orderHash = web3.utils.soliditySha3(
       { type : "bytes16", value : hexCourseId },
       { type : "address", value : account.data }
@@ -27,43 +30,71 @@ export default function Marketplace({courses}) {
 
     const value = web3.utils.toWei(String(order.price));
 
+    setBusyCourseId(course.id);
     if (isNewPurchase) {
       const emailHash = web3.utils.sha3(order.email);
       const proof = web3.utils.soliditySha3(
         { type : "bytes32", value : emailHash },
         { type : "bytes32", value : orderHash }
       );
-      _purchaseCourse(hexCourseId, proof, value)
+      withToast(_purchaseCourse({hexCourseId, proof, value},course))
     } else {
-      _repurchaseCourse(orderHash,value);
+      withToast(_repurchaseCourse({courseHash : orderHash,value},course));
     }
 
     //emailHash + courseHash
 
   };
 
-  const _purchaseCourse = async (hexCourseId, proof, value) => {
+  const _purchaseCourse = async ({hexCourseId, proof, value}, course) => {
     try {
       const result = await contract.methods.purchaseCourse(
         hexCourseId,proof
-      ).send({ from : account.data, value})
-      console.log(result);
-    } catch {
-      console.error("Purchase course : Operation has failed.");
+      ).send({ from : account.data, value});
+      ownedCourses.mutate([
+        ...ownedCourses.data,{
+          ...course,
+          proof,
+          state : "purchased",
+          owner : account.data,
+          price : value
+        }
+      ]);
+      return result;
+    } catch (error) {
+      throw new Error(error.message)
+    } finally {
+      setBusyCourseId(null)
     }
   }
 
-  const _repurchaseCourse = async (courseHash, value) => {
+  const _repurchaseCourse = async ({courseHash, value},course) => {
     try {
       const result = await contract.methods.purchaseCourse(
         courseHash
-      ).send({ from : account.data, value})
-      console.log(result);
-    } catch {
-      console.error("Purchase course : Operation has failed.");
+      ).send({ from : account.data, value});
+
+      const index = ownedCourses.data.findIndex(c => c.id === course.id)
+
+      if (index >= 0){
+        ownedCourses.data[index].state = "purchased";
+        ownedCourses.mutate(ownedCourses.data);
+      } else {
+        ownedCourses.mutate();
+      }
+      return result;
+    } catch (error) {
+      throw new Error(error.message)
+    } finally {
+      setBusyCourseId(null)
     }
   }
 
+  const cleanupModal = () => {
+    setSelectedCourse(null)
+    setIsNewPurchase(true)
+  }
+ 
   return (
     <>
             <MarketHeader/>
@@ -96,10 +127,13 @@ export default function Marketplace({courses}) {
 
                         if (!ownedCourses?.hasInitialResponse) {
                           return (
-                          <div style={{height : "42px"}}> </div>
+                          <Button variant="white" disabled={true} size="sm" >
+                            { hasConnectedWallet ? "Loading State..." : "Connect" }
+                          </Button>
                           )
                         }
 
+                        const isBusy = busyCourseId === course.id;
                         if (owned) {
                           return (
                             <>
@@ -110,11 +144,17 @@ export default function Marketplace({courses}) {
                               {
                                 owned.state === "deactivated" && 
                                 <div className="ml-1">
-                                  <Button size="sm" disabled={false} onClick={() => {
+                                  <Button size="sm" disabled={isBusy} onClick={() => {
                                       setIsNewPurchase(false)
                                       setSelectedCourse(course)
                                   }} variant="purple" >
-                                    Fund to Activate
+                                    { isBusy ? 
+                                      <div className="flex">
+                                        <Loader size="sm" />
+                                        <div className="ml-2">In Progress</div>
+                                      </div>:
+                                      <div>Fund To Activate</div>
+                                    }
                                   </Button>
                                 </div>
                               }
@@ -124,8 +164,19 @@ export default function Marketplace({courses}) {
                         }
 
                         return (
-                            <Button size="sm" onClick={() => setSelectedCourse(course)} disabled={!hasConnectedWallet} variant="lightPurple">
-                              Purchase
+                            <Button 
+                              size="sm" 
+                              onClick={() => setSelectedCourse(course)} 
+                              disabled={!hasConnectedWallet || isBusy} 
+                              variant="lightPurple">
+                                {
+                                  isBusy ? 
+                                    <div className="flex">
+                                      <Loader size="sm" />
+                                      <div className="ml-2">In Progress</div>
+                                    </div>:
+                                    <div>Purchase</div>
+                                }
                             </Button>
                         )}
                       }
@@ -137,12 +188,12 @@ export default function Marketplace({courses}) {
               selectedCourse &&   
               <OrderModal 
                 isNewPurchase = {isNewPurchase}
-                onSubmit={purchaseCourse}
-                course={selectedCourse}
-                onClose={() => {
-                  setSelectedCourse(null)
-                  setIsNewPurchase(true)
+                onSubmit={(formData , course) => {
+                  purchaseCourse(formData, course)
+                  cleanupModal()
                 }}
+                course={selectedCourse}
+                onClose={cleanupModal}
               />
             }
     </>
