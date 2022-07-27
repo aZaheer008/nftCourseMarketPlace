@@ -16,6 +16,8 @@ contract CourseMarketPlace {
         State state;
     }
 
+    bool public isStopped = false;
+
     // mapping of courseHash to Course data
     mapping(bytes32 => Course) private ownedCourses;
 
@@ -38,12 +40,64 @@ contract CourseMarketPlace {
         _;
     }
 
+    modifier onlyWhenNotStopped {
+        require(!isStopped);
+        _;
+    }
+
+    modifier onlyWhenStopped {
+        require(isStopped);
+        _;
+    }
+
+    receive() external payable {}
+
+    function emergencyWithdraw ()
+        external
+        onlyWhenStopped
+        onlyOwner
+    {
+        (bool success,) = owner.call{value : address(this).balance}("");
+        require(success,"Transfer failed.");
+    }
+
+    function selfDestruct ()
+        external
+        onlyWhenStopped
+        onlyOwner
+    {
+        selfdestruct(owner);
+    }
+
+    function withdraw (uint amount)
+        external
+        onlyOwner
+    {
+        (bool success,) = owner.call{value : amount}("");
+        require(success,"Transfer failed.");
+    }
+
+    function stopContract() 
+        external
+        onlyOwner
+    {
+        isStopped = true;
+    }
+
+    function resumeContract() 
+        external
+        onlyOwner
+    {
+        isStopped = false;
+    }
+
     function purchaseCourse (
         bytes16 courseId,
         bytes32 proof
     )
         external
         payable
+        onlyWhenNotStopped
     {
         bytes32 courseHash = keccak256(abi.encodePacked(courseId, msg.sender));
 
@@ -65,6 +119,7 @@ contract CourseMarketPlace {
     function repurchaseCourse(bytes32 courseHash)
         external
         payable
+        onlyWhenNotStopped
     {
         if (!isCourseCreated(courseHash)) {
             revert("Course Is not Created Yet!");
@@ -89,6 +144,7 @@ contract CourseMarketPlace {
         bytes32 courseHash
     )
         external
+        onlyWhenNotStopped
         onlyOwner
     {
         if (!isCourseCreated(courseHash)) {
@@ -107,6 +163,7 @@ contract CourseMarketPlace {
         bytes32 courseHash
     )
         external
+        onlyWhenNotStopped
         onlyOwner
     {
         if (!isCourseCreated(courseHash)) {
