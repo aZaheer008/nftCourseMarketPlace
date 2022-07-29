@@ -36,7 +36,7 @@ export default function Web3Provider({children}) {
             const provider = await detectEthereumProvider();
             if (provider){
                 const web3 = new Web3(provider)
-                const contract = await loadContract("CourseMarketplace", web3);
+                const contract = await loadContract("CourseMarketPlace", web3);
                 setListeners(provider);
                 setWeb3Api(createWeb3State({
                     provider,
