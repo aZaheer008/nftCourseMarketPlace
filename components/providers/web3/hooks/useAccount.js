@@ -3,7 +3,9 @@ import { useEffect } from "react"
 import useSWR from "swr";
 
 const adminAddresses = {
-    "0x6c75f953da30d1bc15c07e5fb6eca4c5a188f7c362c495a127e635edcf8a5d1d":true
+    "0x6c75f953da30d1bc15c07e5fb6eca4c5a188f7c362c495a127e635edcf8a5d1d":true,
+    "0xad819010d488159643b404508be687f7f393492a068b22d6eec253a10ffd6e53":true,
+    
 };
 
 export const handler = (web3, provider) => () => {
@@ -29,7 +31,7 @@ export const handler = (web3, provider) => () => {
         return () => {
             provider?.removeListener("accountsChanged", mutator)
         }
-    },[provider])
+    },[provider]);
 
     return { 
         account : { 

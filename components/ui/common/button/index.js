@@ -23,7 +23,7 @@ export default function Button({
     return (
         <button 
             {...rest}
-            className={`${sizeClass} disabled:opacity-50 disabled:cursor-not-allowed border rounded-md text-base font-medium ${className}${variants[variant]}`}>
+            className={`${sizeClass} disabled:opacity-50 disabled:cursor-not-allowed border rounded-md text-black font-medium ${className}${variants[variant]}`}>
                 {children}
         </button>
     )
